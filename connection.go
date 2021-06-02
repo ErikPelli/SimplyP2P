@@ -1,45 +1,45 @@
 package SimplyP2P
 
 import (
+	"encoding/binary"
 	"errors"
-	"fmt"
 	"net"
+	"strconv"
 )
 
 type Connection struct {
 	conn net.Conn
+	port string
 }
 
-func (n *Node) Listen(port string) error {
-	listener, err := net.Listen("tcp", ":" + port)
-	if err != nil {
-		return err
-	}
-	defer listener.Close()
-
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		go handler(conn)
-	}
+func (conn *Connection) Write(p []byte) (n int, err error) {
+	return conn.conn.Write(p)
 }
 
-func (n *Node) Connect(address string) error {
+func (n *Node) Connect(address, port string) error {
 	c := new(Connection)
 
 	var err error
-	if c.conn, err = net.Dial("tcp", address); err != nil {
+
+	dest := new(Peer)
+	_ = dest.SetAddress(address, port)
+
+	if c.conn, err = net.Dial("tcp", dest.GetAddress()); err != nil {
 		return err
 	}
 
-	// If already present, do nothing
-	if _, ok := n.peers[address]; !ok {
-		n.peers[address] = c
+	// Add peer to peers
+	n.peers.Add(*dest, c)
+
+	// Send P2P listening port
+	portBytes := make([]byte, 2)
+	portUint, err := strconv.ParseUint(n.listenPort, 10, 16)
+	binary.LittleEndian.PutUint16(portBytes, uint16(portUint))
+	if err := c.Send(portBytes); err != nil {
+		return err
 	}
 
+	go n.handlePacket(c, dest.GetAddress())
 	return nil
 }
 

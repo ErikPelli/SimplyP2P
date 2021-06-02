@@ -17,17 +17,17 @@ const (
 	ipv6Packet        = 0x06
 )
 
-// NewPeer is a packet that adds a new peer to a node.
+// Peer is a packet that adds a new peer to a node.
 // +--------+--------------+---------+------+
 // |  0x01  | Address Type | Address | Port |
 // +--------+--------------+---------+------+
-type NewPeer struct {
+type Peer struct {
 	address []byte
 	port    uint16
 }
 
-// WriteTo encodes a NewPeer packet.
-func (p NewPeer) WriteTo(w io.Writer) (n int64, err error) {
+// WriteTo encodes a Peer packet.
+func (p Peer) WriteTo(w io.Writer) (n int64, err error) {
 	var buf bytes.Buffer
 
 	// Packet ID
@@ -51,8 +51,8 @@ func (p NewPeer) WriteTo(w io.Writer) (n int64, err error) {
 	return buf.WriteTo(w)
 }
 
-// ReadFrom decodes a NewPeer packet.
-func (p *NewPeer) ReadFrom(r io.Reader) (n int64, err error) {
+// ReadFrom decodes a Peer packet.
+func (p *Peer) ReadFrom(r io.Reader) (n int64, err error) {
 	// Read address type
 	addressType := make([]byte, 1)
 	if _, err = r.Read(addressType); err != nil {
@@ -82,8 +82,8 @@ func (p *NewPeer) ReadFrom(r io.Reader) (n int64, err error) {
 	return int64(len(addressType) + len(p.address) + len(port)), nil
 }
 
-// GetAddress returns the string representation of IP address.
-func (p NewPeer) GetAddress() string {
+// GetAddress returns the string representation of IP address of Peer.
+func (p Peer) GetAddress() string {
 	add := net.IP(p.address).String()
 	port := strconv.FormatUint(uint64(p.port), 10)
 
@@ -96,8 +96,8 @@ func (p NewPeer) GetAddress() string {
 	}
 }
 
-// SetAddress parses an address and save it to current NewPeer packet.
-func (p *NewPeer) SetAddress(address, port string) error {
+// SetAddress parses an address and save it to current Peer packet.
+func (p *Peer) SetAddress(address, port string) error {
 	ip := net.ParseIP(address)
 	if ip == nil {
 		return errors.New("invalid ip address")

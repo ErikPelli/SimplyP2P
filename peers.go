@@ -14,7 +14,7 @@ type Peers struct {
 }
 
 // Add adds a peer to the map
-func (p *Peers) Add(key string, value *Connection) {
+func (p *Peers) Add(key Peer, value *Connection) {
 	_, old := p.peers.Load(key)
 	if !old {
 		// Add peer if not already present
@@ -26,7 +26,7 @@ func (p *Peers) Add(key string, value *Connection) {
 }
 
 // Remove removes a peer from the map
-func (p *Peers) Remove(key string) {
+func (p *Peers) Remove(key Peer) {
 	if peer, ok := p.peers.LoadAndDelete(key); ok {
 		currentPeer := peer.(*Connection)
 		_ = currentPeer.Close()
@@ -39,7 +39,7 @@ func (p *Peers) Remove(key string) {
 }
 
 // Get returns a peer from the map
-func (p *Peers) Get(key string) (*Connection, error) {
+func (p *Peers) Get(key Peer) (*Connection, error) {
 	if peer, ok := p.peers.Load(key); ok {
 		return peer.(*Connection), nil
 	} else {
@@ -59,9 +59,18 @@ func (p *Peers) Broadcast(to io.WriterTo) {
 
 		// Remove current peer if there is a connection problem
 		if _, err := to.WriteTo(peer); err != nil {
-			p.Remove(key.(string))
+			p.Remove(key.(Peer))
 		}
 
 		return true
 	})
+}
+
+// Close closes all connections.
+func (p *Peers) Close() error {
+	p.peers.Range(func(key interface{}, value interface{}) bool {
+		p.Remove(key.(Peer))
+		return true
+	})
+	return nil
 }
