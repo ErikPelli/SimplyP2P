@@ -11,8 +11,10 @@ import (
 )
 
 const (
-	ipv4Packet = 0x04
-	ipv6Packet = 0x06
+	newPeerPacket     = 0x01
+	changeStatePacket = 0x02
+	ipv4Packet        = 0x04
+	ipv6Packet        = 0x06
 )
 
 // NewPeer is a packet that adds a new peer to a node.
@@ -20,8 +22,8 @@ const (
 // |  0x01  | Address Type | Address | Port |
 // +--------+--------------+---------+------+
 type NewPeer struct {
-	address		[]byte
-	port		uint16
+	address []byte
+	port    uint16
 }
 
 // WriteTo encodes a NewPeer packet.
@@ -29,7 +31,7 @@ func (p NewPeer) WriteTo(w io.Writer) (n int64, err error) {
 	var buf bytes.Buffer
 
 	// Packet ID
-	buf.WriteByte(0x01)
+	buf.WriteByte(newPeerPacket)
 
 	// Address type
 	if len(p.address) == net.IPv4len {
@@ -86,9 +88,9 @@ func (p NewPeer) GetAddress() string {
 	port := strconv.FormatUint(uint64(p.port), 10)
 
 	if len(p.address) == net.IPv4len {
-		return add+":"+port
+		return add + ":" + port
 	} else if len(p.address) == net.IPv6len {
-		return "["+add+"]:"+port
+		return "[" + add + "]:" + port
 	} else {
 		return ""
 	}
@@ -110,14 +112,13 @@ func (p *NewPeer) SetAddress(address, port string) error {
 	}
 }
 
-
 // ChangeState is a packet that change global P2P state.
 // +--------+-----------+-------+
 // |  0x02  | Timestamp | State |
 // +--------+-----------+-------+
 type ChangeState struct {
-	State		byte
-	time		time.Time
+	State bool
+	time  time.Time
 }
 
 // WriteTo encodes a ChangeState packet.
@@ -125,7 +126,7 @@ func (s ChangeState) WriteTo(w io.Writer) (n int64, err error) {
 	var buf bytes.Buffer
 
 	// Packet ID
-	buf.WriteByte(0x02)
+	buf.WriteByte(changeStatePacket)
 
 	// Send time
 	var timestamp []byte
@@ -133,7 +134,11 @@ func (s ChangeState) WriteTo(w io.Writer) (n int64, err error) {
 	buf.Write(timestamp)
 
 	// Current state
-	buf.WriteByte(s.State)
+	if s.State {
+		buf.WriteByte(0x01)
+	} else {
+		buf.WriteByte(0x00)
+	}
 
 	return buf.WriteTo(w)
 }
@@ -154,7 +159,7 @@ func (s *ChangeState) ReadFrom(r io.Reader) (n int64, err error) {
 	if _, err = r.Read(state); err != nil {
 		return 0, err
 	}
-	s.State = state[0]
+	s.State = state[0] == 0x01
 
 	return int64(len(timestamp) + len(state)), nil
 }
