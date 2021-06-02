@@ -9,7 +9,6 @@ import (
 
 type Connection struct {
 	conn net.Conn
-	port string
 }
 
 func (conn *Connection) Write(p []byte) (n int, err error) {
@@ -28,9 +27,6 @@ func (n *Node) Connect(address, port string) error {
 		return err
 	}
 
-	// Add peer to peers
-	n.peers.Add(*dest, c)
-
 	// Send P2P listening port
 	portBytes := make([]byte, 2)
 	portUint, err := strconv.ParseUint(n.listenPort, 10, 16)
@@ -39,7 +35,10 @@ func (n *Node) Connect(address, port string) error {
 		return err
 	}
 
-	go n.handlePacket(c, dest.GetAddress())
+	// Add peer to peers
+	n.peers.Add(*dest, c)
+
+	go n.handlePacket(c, *dest)
 	return nil
 }
 
