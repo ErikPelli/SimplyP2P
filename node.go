@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sync"
 )
 
 type Node struct {
@@ -12,40 +13,44 @@ type Node struct {
 	peers      Peers
 	state      State
 	closed     bool
+	wg         *sync.WaitGroup
 }
 
 // NewNode creates a new peer to peer node instance
 // specifying local listening port and a slice of known peers.
-func NewNode(listenPort string, peers [][]string) (n *Node, err error) {
-	if len(peers) == 0 {
-		return nil, errors.New("there is no peer")
-	}
-
-	n = new(Node)
+func NewNode(listenPort string, peers [][]string, wg *sync.WaitGroup) (*Node, error) {
+	n := new(Node)
 	n.listenPort = listenPort
+	var err error
 
-	// Clean node if there is an error
-	defer func() {
+	// Add node to wait group
+	n.wg = wg
+	wg.Add(1)
+
+	// Close node if there is an error
+	defer func(n *Node) {
 		if err != nil {
 			_ = n.Close()
 		}
-	}()
+	}(n)
 
 	// Start listening
 	if err = n.listen(listenPort); err != nil {
 		return nil, err
 	}
 
-	// Connect to a peer
-	for _, peer := range peers {
-		// if current peer is valid, else check the next
-		if n.Connect(peer[0], peer[1]) != nil {
-			break
+	// Connect to a peer if there are some specified
+	if len(peers) != 0 {
+		for _, peer := range peers {
+			// if current peer is valid, else check the next
+			if n.Connect(peer[0], peer[1]) != nil {
+				break
+			}
 		}
-	}
 
-	if n.peers.Len() == 0 {
-		return nil, errors.New("there is no peer")
+		if n.peers.Len() == 0 {
+			return nil, errors.New("there is no peer")
+		}
 	}
 
 	return n, nil
@@ -57,9 +62,9 @@ func (n *Node) listen(port string) error {
 	if err != nil {
 		return err
 	}
-	defer listener.Close()
 
 	go func() {
+		defer listener.Close()
 		for !n.closed {
 			conn, err := listener.Accept()
 			if err != nil {
@@ -90,9 +95,14 @@ func (n *Node) newConnectionHandler(conn Connection) {
 	})
 
 	// Add current connection to peers
+	remoteIP := new(Peer)
+	if err := remoteIP.SetAddress(conn.conn.RemoteAddr().(*net.TCPAddr).IP.String(), "0"); err != nil {
+		return
+	}
 	currentPeer := Peer{
-		address: conn.conn.RemoteAddr().(*net.TCPAddr).IP,
-		port:    binary.LittleEndian.Uint16(portBytes),
+		address:       remoteIP.address,
+		addressLength: remoteIP.addressLength,
+		port:          binary.LittleEndian.Uint16(portBytes),
 	}
 	n.peers.Add(currentPeer, &conn)
 
@@ -138,5 +148,6 @@ func (n *Node) handlePacket(conn *Connection, mapKey Peer) {
 // Close closes the connection with every peer.
 func (n *Node) Close() error {
 	_ = n.peers.Close()
+	n.wg.Done()
 	return nil
 }

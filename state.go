@@ -23,7 +23,9 @@ func (s *State) Update(value bool, t time.Time) {
 	s.stateMtx.Lock()
 	if t.After(s.Time) {
 		s.state = value
-		s.event(value)
+		if s.event != nil {
+			s.event(value)
+		}
 	}
 	s.stateMtx.Unlock()
 }

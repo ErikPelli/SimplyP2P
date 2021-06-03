@@ -17,7 +17,6 @@ func (conn *Connection) Write(p []byte) (n int, err error) {
 
 func (n *Node) Connect(address, port string) error {
 	c := new(Connection)
-
 	var err error
 
 	dest := new(Peer)

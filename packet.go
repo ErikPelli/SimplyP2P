@@ -18,12 +18,14 @@ const (
 )
 
 // Peer is a packet that adds a new peer to a node.
+// Use an array instead of a slice to use it has map hashed key.
 // +--------+--------------+---------+------+
 // |  0x01  | Address Type | Address | Port |
 // +--------+--------------+---------+------+
 type Peer struct {
-	address []byte
-	port    uint16
+	address       [net.IPv6len]byte
+	addressLength int
+	port          uint16
 }
 
 // WriteTo encodes a Peer packet.
@@ -34,17 +36,16 @@ func (p Peer) WriteTo(w io.Writer) (n int64, err error) {
 	buf.WriteByte(newPeerPacket)
 
 	// Address type
-	if len(p.address) == net.IPv4len {
+	if p.addressLength == net.IPv4len {
 		buf.WriteByte(ipv4Packet)
+		buf.Write(p.address[:net.IPv4len])
 	} else {
 		buf.WriteByte(ipv6Packet)
+		buf.Write(p.address[:net.IPv6len])
 	}
 
-	// Address
-	buf.Write(p.address)
-
 	// Port
-	var port []byte
+	port := make([]byte, 2)
 	binary.LittleEndian.PutUint16(port, p.port)
 	buf.Write(port)
 
@@ -59,16 +60,16 @@ func (p *Peer) ReadFrom(r io.Reader) (n int64, err error) {
 		return 0, err
 	}
 
+	// Read address
 	if addressType[0] == ipv4Packet {
-		p.address = make([]byte, net.IPv4len)
+		_, err = r.Read(p.address[:net.IPv4len])
 	} else if addressType[0] == ipv6Packet {
-		p.address = make([]byte, net.IPv6len)
+		_, err = r.Read(p.address[:net.IPv6len])
 	} else {
-		return 0, errors.New("invalid address type")
+		err = errors.New("invalid address type")
 	}
 
-	// Read address
-	if _, err = r.Read(p.address); err != nil {
+	if err != nil {
 		return 0, err
 	}
 
@@ -84,12 +85,12 @@ func (p *Peer) ReadFrom(r io.Reader) (n int64, err error) {
 
 // GetAddress returns the string representation of IP address of Peer.
 func (p Peer) GetAddress() string {
-	add := net.IP(p.address).String()
+	add := net.IP(p.address[:]).String()
 	port := strconv.FormatUint(uint64(p.port), 10)
 
-	if len(p.address) == net.IPv4len {
+	if p.addressLength == net.IPv4len {
 		return add + ":" + port
-	} else if len(p.address) == net.IPv6len {
+	} else if p.addressLength == net.IPv6len {
 		return "[" + add + "]:" + port
 	} else {
 		return ""
@@ -98,11 +99,17 @@ func (p Peer) GetAddress() string {
 
 // SetAddress parses an address and save it to current Peer packet.
 func (p *Peer) SetAddress(address, port string) error {
+	// Local ip if address wasn't set
+	if address == "" {
+		address = "127.0.0.1"
+	}
+
+	// Parse IP address
 	ip := net.ParseIP(address)
 	if ip == nil {
 		return errors.New("invalid ip address")
 	}
-	p.address = ip
+	p.addressLength = copy(p.address[:], ip)
 
 	if parsedPort, err := strconv.ParseUint(port, 10, 16); err != nil {
 		return err
@@ -129,7 +136,7 @@ func (s ChangeState) WriteTo(w io.Writer) (n int64, err error) {
 	buf.WriteByte(changeStatePacket)
 
 	// Send time
-	var timestamp []byte
+	timestamp := make([]byte, 8)
 	binary.LittleEndian.PutUint64(timestamp, uint64(time.Now().UnixNano()))
 	buf.Write(timestamp)
 
