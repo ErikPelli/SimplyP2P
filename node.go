@@ -53,6 +53,8 @@ func NewNode(listenPort string, peers [][]string, wg *sync.WaitGroup) (*Node, er
 		}
 	}
 
+	n.newGui()
+
 	return n, nil
 }
 

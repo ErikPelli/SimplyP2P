@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"strconv"
@@ -146,6 +147,8 @@ func (s ChangeState) WriteTo(w io.Writer) (n int64, err error) {
 	} else {
 		buf.WriteByte(0x00)
 	}
+
+	fmt.Println("Sent ChangeState packet")
 
 	return buf.WriteTo(w)
 }
