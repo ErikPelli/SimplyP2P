@@ -19,18 +19,28 @@ func (s *State) SetEvent(event func(bool)) {
 }
 
 // Update updates the state value if there is a more recent value change.
-func (s *State) Update(value bool, t time.Time) {
+// Returns boolean update (true if updated).
+func (s *State) Update(value bool, t time.Time) bool {
 	s.stateMtx.Lock()
+	defer s.stateMtx.Unlock()
+
 	if t.After(s.Time) {
 		s.state = value
 		if s.event != nil {
 			s.event(value)
 		}
+		return true
+	} else {
+		return false
 	}
-	s.stateMtx.Unlock()
 }
 
 // GetState returns current state value.
 func (s *State) GetState() bool {
 	return s.state
+}
+
+// GetTime returns current time value.
+func (s *State) GetTime() time.Time {
+	return s.Time
 }

@@ -20,9 +20,15 @@ func (n *Node) Connect(address, port string) error {
 	var err error
 
 	dest := new(Peer)
-	_ = dest.SetAddress(address, port)
+	_ = dest.SetAddress(address)
+	_ = dest.SetPort(port)
 
-	if c.conn, err = net.Dial("tcp", dest.GetAddress()); err != nil {
+	// Skip current connection if there is already one
+	if _, err = n.peers.Get(*dest); err == nil {
+		return err
+	}
+
+	if c.conn, err = net.Dial("tcp", dest.GetAddressAndPort()); err != nil {
 		return err
 	}
 

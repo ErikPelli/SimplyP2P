@@ -28,7 +28,7 @@ func (n *Node) setupUI() {
 	box := ui.NewVerticalBox()
 	gui.window.SetChild(box)
 
-    // State
+    // Current state label that will be updated
 	state := ui.NewLabel("")
 
 	n.state.event = func(actualState bool) {
@@ -39,29 +39,25 @@ func (n *Node) setupUI() {
 		}
 	}
 
-	falseBtn := ui.NewButton("False")
-	falseBtn.OnClicked(func(btn *ui.Button) {
-		currentTime := time.Now()
-		n.state.Update(false, currentTime)
-		n.peers.Broadcast(ChangeState{
-			State: false,
-			time:  currentTime,
+	// Function that create a new change state button
+	addButton := func(text string, newState bool) *ui.Button {
+		button := ui.NewButton(text)
+		button.OnClicked(func(btn *ui.Button) {
+			currentTime := time.Now()
+			if n.state.Update(newState, currentTime) {
+				n.peers.Broadcast(ChangeState{
+					State: newState,
+					time:  currentTime,
+				})
+			}
 		})
-	})
 
-	trueBtn := ui.NewButton("True")
-	trueBtn.OnClicked(func(btn *ui.Button) {
-		currentTime := time.Now()
-		n.state.Update(true, currentTime)
-		n.peers.Broadcast(ChangeState{
-			State: true,
-			time:  currentTime,
-		})
-	})
+		return button
+	}
 
 	box.Append(state, false)
-	box.Append(falseBtn, false)
-	box.Append(trueBtn, false)
+	box.Append(addButton("False", false), false)
+	box.Append(addButton("True", true), false)
 
 	gui.window.Show()
 }

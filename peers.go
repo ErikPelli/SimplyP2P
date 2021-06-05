@@ -2,6 +2,7 @@ package SimplyP2P
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"sync"
 )
@@ -13,7 +14,7 @@ type Peers struct {
 	counterMtx sync.Mutex
 }
 
-// Add adds a peer to the map
+// Add adds a peer to the map.
 func (p *Peers) Add(key Peer, value *Connection) {
 	_, old := p.peers.Load(key)
 	if !old {
@@ -54,11 +55,13 @@ func (p *Peers) Len() int {
 
 // Broadcast sends a packet to all peers connected.
 func (p *Peers) Broadcast(to io.WriterTo) {
+	fmt.Println("Sent new broadcast packet")
+
 	p.peers.Range(func(key interface{}, value interface{}) bool {
-		peer := value.(*Connection)
+		currentPeer := value.(*Connection)
 
 		// Remove current peer if there is a connection problem
-		if _, err := to.WriteTo(peer); err != nil {
+		if _, err := to.WriteTo(currentPeer); err != nil {
 			p.Remove(key.(Peer))
 		}
 

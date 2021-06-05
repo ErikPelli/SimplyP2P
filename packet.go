@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 	"net"
-	"strconv"
 	"time"
 )
 
@@ -18,19 +16,17 @@ const (
 	ipv6Packet        = 0x06
 )
 
-// Peer is a packet that adds a new peer to a node.
+// AddPeer is a packet that adds a new peer to a node.
 // Use an array instead of a slice to use it has map hashed key.
 // +--------+--------------+---------+------+
 // |  0x01  | Address Type | Address | Port |
 // +--------+--------------+---------+------+
-type Peer struct {
-	address       [net.IPv6len]byte
-	addressLength int
-	port          uint16
+type AddPeer struct {
+	Peer
 }
 
 // WriteTo encodes a Peer packet.
-func (p Peer) WriteTo(w io.Writer) (n int64, err error) {
+func (p AddPeer) WriteTo(w io.Writer) (n int64, err error) {
 	var buf bytes.Buffer
 
 	// Packet ID
@@ -54,7 +50,7 @@ func (p Peer) WriteTo(w io.Writer) (n int64, err error) {
 }
 
 // ReadFrom decodes a Peer packet.
-func (p *Peer) ReadFrom(r io.Reader) (n int64, err error) {
+func (p *AddPeer) ReadFrom(r io.Reader) (n int64, err error) {
 	// Read address type
 	addressType := make([]byte, 1)
 	if _, err = r.Read(addressType); err != nil {
@@ -84,42 +80,6 @@ func (p *Peer) ReadFrom(r io.Reader) (n int64, err error) {
 	return int64(len(addressType) + len(p.address) + len(port)), nil
 }
 
-// GetAddress returns the string representation of IP address of Peer.
-func (p Peer) GetAddress() string {
-	add := net.IP(p.address[:]).String()
-	port := strconv.FormatUint(uint64(p.port), 10)
-
-	if p.addressLength == net.IPv4len {
-		return add + ":" + port
-	} else if p.addressLength == net.IPv6len {
-		return "[" + add + "]:" + port
-	} else {
-		return ""
-	}
-}
-
-// SetAddress parses an address and save it to current Peer packet.
-func (p *Peer) SetAddress(address, port string) error {
-	// Local ip if address wasn't set
-	if address == "" {
-		address = "127.0.0.1"
-	}
-
-	// Parse IP address
-	ip := net.ParseIP(address)
-	if ip == nil {
-		return errors.New("invalid ip address")
-	}
-	p.addressLength = copy(p.address[:], ip)
-
-	if parsedPort, err := strconv.ParseUint(port, 10, 16); err != nil {
-		return err
-	} else {
-		p.port = uint16(parsedPort)
-		return nil
-	}
-}
-
 // ChangeState is a packet that change global P2P state.
 // +--------+-----------+-------+
 // |  0x02  | Timestamp | State |
@@ -138,7 +98,7 @@ func (s ChangeState) WriteTo(w io.Writer) (n int64, err error) {
 
 	// Send time
 	timestamp := make([]byte, 8)
-	binary.LittleEndian.PutUint64(timestamp, uint64(time.Now().UnixNano()))
+	binary.LittleEndian.PutUint64(timestamp, uint64(s.time.UnixNano()))
 	buf.Write(timestamp)
 
 	// Current state
@@ -147,8 +107,6 @@ func (s ChangeState) WriteTo(w io.Writer) (n int64, err error) {
 	} else {
 		buf.WriteByte(0x00)
 	}
-
-	fmt.Println("Sent ChangeState packet")
 
 	return buf.WriteTo(w)
 }
