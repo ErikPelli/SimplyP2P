@@ -13,8 +13,9 @@ type SimplyGui struct {
 
 // setupUI sets the gui elements and show then.
 func (n *Node) setupUI() {
-	gui := new(SimplyGui)
-	gui.window = ui.NewWindow("State Peer", 300, 200, false)
+	gui := SimplyGui{
+		window: ui.NewWindow("State Peer", 300, 200, false),
+	}
 
 	// Close current Node at exit
 	gui.window.OnClosing(func(*ui.Window) bool {
@@ -68,5 +69,5 @@ func (n *Node) setupUI() {
 // newGui creates a new GUI linked to current node
 // and starts it in a new goroutine.
 func (n *Node) newGui() {
-	go ui.Main(n.setupUI)
+	_ = ui.Main(n.setupUI)
 }

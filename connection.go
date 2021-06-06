@@ -10,10 +10,10 @@ type Connection struct {
 	conn net.Conn
 }
 
-// Connect connects to a remote peer with the destination IP and port in the Peer argument.
-func (conn *Connection) Connect(destination Peer) error {
+// Connect connects to a remote peer specified in the destination argument.
+func (conn *Connection) Connect(destination string) error {
 	var err error
-	conn.conn, err = net.Dial("tcp", destination.GetAddressAndPort())
+	conn.conn, err = net.Dial("tcp", destination)
 	return err
 }
 
@@ -30,7 +30,7 @@ func (conn *Connection) Send(data []byte) error {
 	}
 
 	num, err := conn.conn.Write(data)
-	
+
 	if err != nil {
 		return err
 	}

@@ -21,15 +21,16 @@ const (
 
 // AddPeer is a packet that adds a new peer to a node.
 // Use an array instead of a slice to use it has map hashed key.
-// +--------+--------------+---------+------+
-// |  0x01  | Address Type | Address | Port |
-// +--------+--------------+---------+------+
 type AddPeer struct {
 	Peer
 }
 
 // WriteTo encodes a Peer packet.
 func (p AddPeer) WriteTo(w io.Writer) (n int64, err error) {
+	// +--------+--------------+---------+------+
+	// |  0x01  | Address Type | Address | Port |
+	// +--------+--------------+---------+------+
+
 	var buf bytes.Buffer
 
 	// Send Packet ID
@@ -90,9 +91,6 @@ func (p *AddPeer) ReadFrom(r io.Reader) (n int64, err error) {
 }
 
 // ChangeState is a packet that change global P2P state.
-// +--------+-----------+-------+
-// |  0x02  | Timestamp | State |
-// +--------+-----------+-------+
 type ChangeState struct {
 	State bool
 	Time  time.Time
@@ -101,6 +99,10 @@ type ChangeState struct {
 // WriteTo encodes a ChangeState packet.
 // If the time hasn't been set, then it corresponds to the current time.
 func (s ChangeState) WriteTo(w io.Writer) (n int64, err error) {
+	// +--------+-----------+-------+
+	// |  0x02  | Timestamp | State |
+	// +--------+-----------+-------+
+
 	var buf bytes.Buffer
 
 	// Send Packet ID
