@@ -6,25 +6,24 @@ import (
 	"strconv"
 )
 
-// Peer is the representation of a single P2P peer.
+// Peer is another peer in the P2P network.
 type Peer struct {
 	address       [net.IPv6len]byte
 	addressLength int
 	port          uint16
 }
 
-// GetAddress returns the string representation of IP address.
+// GetAddress returns the string representation of IP address of current Peer.
 func (p Peer) GetAddress() string {
 	return net.IP(p.address[:]).String()
 }
 
-// GetPort returns the string representation of the peer listening port.
+// GetPort returns the string representation of listening port of current Peer.
 func (p Peer) GetPort() string {
 	return strconv.FormatUint(uint64(p.port), 10)
 }
 
-
-// GetAddressAndPort returns the string representation of IP address and Port of current Peer.
+// GetAddressAndPort returns the string representation of IP address and port of current Peer.
 func (p Peer) GetAddressAndPort() string {
 	add := p.GetAddress()
 	port := p.GetPort()
@@ -40,7 +39,7 @@ func (p Peer) GetAddressAndPort() string {
 
 // SetAddress parses an address and save it to current Peer.
 func (p *Peer) SetAddress(address string) error {
-	// Local ip if address is empty
+	// Local IP address if the function argument is empty
 	if address == "" {
 		address = "127.0.0.1"
 	}
@@ -48,7 +47,7 @@ func (p *Peer) SetAddress(address string) error {
 	// Parse IP address
 	ip := net.ParseIP(address)
 	if ip == nil {
-		return errors.New("invalid ip address")
+		return errors.New("invalid IP address")
 	}
 	p.addressLength = copy(p.address[:], ip)
 
@@ -61,8 +60,6 @@ func (p *Peer) SetPort(port string) error {
 	if err != nil {
 		return err
 	}
-
-	// Save port to peer
 	p.port = uint16(parsedPort)
 
 	return nil

@@ -7,25 +7,30 @@ import (
 
 // State is the current global P2P state.
 type State struct {
-	state    bool
-	stateMtx sync.Mutex
-	event    func(bool)
-	time.Time
+	state bool
+	t     time.Time
+	mtx   sync.RWMutex
+	event func(bool)
 }
 
 // SetEvent sets a function to call when the value change.
 func (s *State) SetEvent(event func(bool)) {
+	s.mtx.Lock()
 	s.event = event
+	s.mtx.Unlock()
 }
 
 // Update updates the state value if there is a more recent value change.
-// Returns boolean update (true if updated).
+// Returns boolean update (true if has been updated).
 func (s *State) Update(value bool, t time.Time) bool {
-	s.stateMtx.Lock()
-	defer s.stateMtx.Unlock()
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
 
-	if t.After(s.Time) {
+	if t.After(s.t) {
 		s.state = value
+		s.t = t
+
+		// Execute event function
 		if s.event != nil {
 			s.event(value)
 		}
@@ -37,10 +42,14 @@ func (s *State) Update(value bool, t time.Time) bool {
 
 // GetState returns current state value.
 func (s *State) GetState() bool {
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
 	return s.state
 }
 
 // GetTime returns current time value.
 func (s *State) GetTime() time.Time {
-	return s.Time
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
+	return s.t
 }
