@@ -14,6 +14,9 @@ const (
 	changeStatePacket = 0x02
 	ipv4Packet        = 0x04
 	ipv6Packet        = 0x06
+	stateFalse        = 0
+	stateTrue         = 1
+	uint16Bytes       = 2
 )
 
 // AddPeer is a packet that adds a new peer to a node.
@@ -29,7 +32,7 @@ type AddPeer struct {
 func (p AddPeer) WriteTo(w io.Writer) (n int64, err error) {
 	var buf bytes.Buffer
 
-	// Packet ID
+	// Send Packet ID
 	buf.WriteByte(newPeerPacket)
 
 	// Address type
@@ -42,7 +45,7 @@ func (p AddPeer) WriteTo(w io.Writer) (n int64, err error) {
 	}
 
 	// Port
-	port := make([]byte, 2)
+	port := make([]byte, uint16Bytes)
 	binary.LittleEndian.PutUint16(port, p.port)
 	buf.Write(port)
 
@@ -51,6 +54,8 @@ func (p AddPeer) WriteTo(w io.Writer) (n int64, err error) {
 
 // ReadFrom decodes a Peer packet.
 func (p *AddPeer) ReadFrom(r io.Reader) (n int64, err error) {
+	var addressLength int
+
 	// Read address type
 	addressType := make([]byte, 1)
 	if _, err = r.Read(addressType); err != nil {
@@ -59,25 +64,29 @@ func (p *AddPeer) ReadFrom(r io.Reader) (n int64, err error) {
 
 	// Read address
 	if addressType[0] == ipv4Packet {
-		_, err = r.Read(p.address[:net.IPv4len])
+		addressLength = net.IPv4len
+		_, err = r.Read(p.address[:addressLength])
 	} else if addressType[0] == ipv6Packet {
-		_, err = r.Read(p.address[:net.IPv6len])
+		addressLength = net.IPv6len
+		_, err = r.Read(p.address[:addressLength])
 	} else {
+		addressLength = 0
 		err = errors.New("invalid address type")
 	}
 
+	// Check address read error
 	if err != nil {
 		return 0, err
 	}
 
 	// Read port
-	port := make([]byte, 2) // TCP port = 2 bytes
+	port := make([]byte, uint16Bytes)
 	if _, err = r.Read(port); err != nil {
 		return 0, err
 	}
 	p.port = binary.LittleEndian.Uint16(port)
 
-	return int64(len(addressType) + len(p.address) + len(port)), nil
+	return int64(len(addressType) + addressLength + len(port)), nil
 }
 
 // ChangeState is a packet that change global P2P state.
@@ -86,26 +95,32 @@ func (p *AddPeer) ReadFrom(r io.Reader) (n int64, err error) {
 // +--------+-----------+-------+
 type ChangeState struct {
 	State bool
-	time  time.Time
+	Time  time.Time
 }
 
 // WriteTo encodes a ChangeState packet.
+// If the time hasn't been set, then it corresponds to the current time.
 func (s ChangeState) WriteTo(w io.Writer) (n int64, err error) {
 	var buf bytes.Buffer
 
-	// Packet ID
+	// Send Packet ID
 	buf.WriteByte(changeStatePacket)
 
-	// Send time
+	// Set Time if it hasn't already been done
+	if s.Time.IsZero() {
+		s.Time = time.Now()
+	}
+
+	// Send Time
 	timestamp := make([]byte, 8)
-	binary.LittleEndian.PutUint64(timestamp, uint64(s.time.UnixNano()))
+	binary.LittleEndian.PutUint64(timestamp, uint64(s.Time.UnixNano()))
 	buf.Write(timestamp)
 
 	// Current state
 	if s.State {
-		buf.WriteByte(0x01)
+		buf.WriteByte(stateTrue)
 	} else {
-		buf.WriteByte(0x00)
+		buf.WriteByte(stateFalse)
 	}
 
 	return buf.WriteTo(w)
@@ -113,26 +128,21 @@ func (s ChangeState) WriteTo(w io.Writer) (n int64, err error) {
 
 // ReadFrom decodes a ChangeState packet.
 func (s *ChangeState) ReadFrom(r io.Reader) (n int64, err error) {
-	// Read timestamp
+	// Read Time
 	timestamp := make([]byte, 8)
 	if _, err = r.Read(timestamp); err != nil {
 		return 0, err
 	}
 
-	// Parse Time from unix timestamp
-	s.time = time.Unix(0, int64(binary.LittleEndian.Uint64(timestamp)))
+	// Parse Time from Unix timestamp
+	s.Time = time.Unix(0, int64(binary.LittleEndian.Uint64(timestamp)))
 
 	// Read state
 	state := make([]byte, 1)
 	if _, err = r.Read(state); err != nil {
 		return 0, err
 	}
-	s.State = state[0] == 0x01
+	s.State = state[0] == stateTrue
 
 	return int64(len(timestamp) + len(state)), nil
-}
-
-// GetTime returns current read packet time of dispatch.
-func (s ChangeState) GetTime() time.Time {
-	return s.time
 }
