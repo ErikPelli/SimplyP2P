@@ -26,7 +26,11 @@ func (s *State) Update(value bool, t time.Time) bool {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	if t.After(s.t) {
+	// Update state if new time is after the current time.
+	// If instead the time is equal, give precedence to the higher value
+	// (true in boolean), to have a consistent value in case of time collision.
+	updateValue := t.After(s.t) || t.Equal(s.t) && s.state != value && value
+	if updateValue {
 		s.state = value
 		s.t = t
 
@@ -34,10 +38,8 @@ func (s *State) Update(value bool, t time.Time) bool {
 		if s.event != nil {
 			s.event(value)
 		}
-		return true
-	} else {
-		return false
 	}
+	return updateValue
 }
 
 // GetState returns current state value.
