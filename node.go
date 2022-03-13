@@ -66,7 +66,8 @@ func NewNode(listenPort string, peers [][]string, wg *sync.WaitGroup) (*Node, er
 	return n, nil
 }
 
-// connect connects to a specified host (address and port).
+// connect makes a new connection to a specified host
+// (address and port) in the given node.
 func (n *Node) connect(address, port string) error {
 	// Set destination peer parameters
 	dest := new(Peer)
@@ -98,7 +99,8 @@ func (n *Node) connect(address, port string) error {
 	return nil
 }
 
-// listen listens for connections on a specified port.
+// listen makes a new listening socket on a specified port
+// to handle connections from other nodes.
 func (n *Node) listen(port string) error {
 	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
